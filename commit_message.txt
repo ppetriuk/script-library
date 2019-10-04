@@ -1,0 +1,15 @@
+[ ] Summary 50 char
+
+Description
+
+DocImpact
+APIImpact
+SecurityImpact
+UpgradeImpact
+
+Story:
+Closes-Bug:
+Partial-Bug:
+Related-Bug:
+
+Co-Authored-By: name <name@example.com>
