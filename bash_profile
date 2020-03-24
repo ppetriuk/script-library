@@ -14,8 +14,22 @@ alias ls='ls -laGhp'
 source $HOME/.vim/pack/default/start/gruvbox/gruvbox_256palette.sh
 
 # Navigation aliases
-alias cd_github="cd /Users/ppetriuk/Documents/github"
-alias cd_gerrit="cd /Users/ppetriuk/Documents/gerrit"
-alias commit_message="cp /Users/ppetriuk/Documents/github/script-library/commit_message.txt ./commit_message.txt; vim ./commit_message.txt"
-alias git_commit="git remote update; git pull --ff-only; #git commit -s -m"
-alias git_stash="git stash push -m "$(head -n 1 ./commit_message.txt)""
+U_DIR="/Users/ppetriuk/Documents"
+alias cd_github="cd $U_DIR/github"
+alias cd_gerrit="cd $U_DIR/gerrit"
+
+rc_presales="$U_DIR/rc.files/presales-cloud/ppetriuk-openrc.sh"
+
+# Git aliases
+alias git_pull="git remote update; git pull --ff-only; #git commit -s -m"
+
+# Ooen chrome tab/window
+alias chrome='open --new -a "Google Chrome" --args $@'
+alias chrome_window='open --new -a "Google Chrome" --args --new-window $@'
+
+#alias git_stash="git stash push -m"
+
+# Setting PATH for Python 2.7
+# The original version is saved in .bash_profile.pysave
+PATH="/Library/Frameworks/Python.framework/Versions/2.7/bin:${PATH}"
+export PATH
