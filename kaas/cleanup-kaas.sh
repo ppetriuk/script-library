@@ -11,7 +11,7 @@ then
     exit 35
 fi
 
-for lb in `openstack loadbalancer list -c id -f value --project $OS_PROJECT_NAME`; do openstack loadbalancer pool list -c id -f value --loadbalancer $lb >> pools.txt; done
+for lb in `openstack loadbalancer list -c id -f value --project $OS_PROJECT_NAME`; do echo "$lb"; openstack loadbalancer pool list -c id -f value --loadbalancer $lb >> pools.txt; done
 while read p; do echo "Deleting $p"; openstack loadbalancer pool delete $p; done < pools.txt
 
 for lbl in `openstack loadbalancer listener list -c id -f value --project $OS_PROJECT_NAME`; do echo "Deleting LBL $lbl"; openstack loadbalancer listener delete $lbl; done
