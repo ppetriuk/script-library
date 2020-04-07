@@ -51,7 +51,7 @@ parameters:
         type: string
         label: Instance Type
         description: Type of instance (flavor) to be used for instance
-        default: 35a4c62c-06ff-4281-981c-6e30e4d0ab55
+        default: b960dcde-4cd2-4db2-a711-8e549c20e4eb
         constraints:
             - custom_constraint: nova.flavor
 
@@ -67,14 +67,10 @@ parameters:
         label: Security Group Name
         description: Name of the existing Security Group to use
         default: ppetriuk-public
-#        constraints:
-#            - custom_constraint: neutron.security_group
     sg_ports:
         type: comma_delimited_list
         label: Security Group TCP Ports
-        default: "22,80,443,8080,8000"
-#TODO: Add a rule that will allow All ports in that security group to talk to each other
-
+        default: "22,80,443"
 
 # Create private network plumbing
     create_net:
@@ -86,20 +82,16 @@ parameters:
        type: string
        label: Private network name
        description: Name of existing private network to use
-       default: dee-demo
-#TODO: it still requires to choose the private, even if no effect
-       constraints:
-           - custom_constraint: neutron.network
-    dns_nameserver:
+       default: private
+    dns_nameservers:
         type: comma_delimited_list
-        label: DNS IPs
-        description: Comma separated list
-        default: 8.8.8.8, 8.8.4.4
-
+        label: DNS IP addresses
+        description: IPs separated by comma
+        default: 5.43.231.15,8.8.8.8,8.8.4.4
 
     assign_fip:
         type: boolean
-        label: Assign FIP
+        label: Assign FIPs to all VMs
         description: Whether or not to assign Floating IP to the VM
         default: yes
     external_network:
@@ -107,84 +99,167 @@ parameters:
         label: External network name
         description: Name of the external network for FIP 
         default: public
-#        constraints:
-#            - custom_constraint: neutron.network
     
 conditions:
     create_private_net: {get_param: create_net}
-#    create_sec_group: False #TODO: add this!
+    create_sec_group: {get_param: create_sg}
+    create_fip: {get_param: assign_fip}
 
 resources:
 
 # Take care of private networking, if needed
-    private_network:
+    dedicated_network:
         type: OS::Neutron::Net
         condition: create_private_net
 
-    private_subnet:
+    dedicated_subnet:
         type: OS::Neutron::Subnet
         properties:
-            network_id: { get_resource: private_network}
+            network_id: { get_resource: dedicated_network}
             cidr: "10.8.1.0/24"
-            dns_nameservers: {get_param: dns_nameserver}
+            dns_nameservers: {get_param: dns_nameservers}
             ip_version: 4
         condition: create_private_net
 
-    private_router:
+    dedicated_router:
         type: OS::Neutron::Router
         properties:
             external_gateway_info: { network: {get_param: external_network}}
         condition: create_private_net
 
-    private_router_interface:
+    dedicated_router_interface:
         type: OS::Neutron::RouterInterface
         properties:
-            router_id: { get_resource: private_router }
-            subnet: { get_resource: private_subnet }
+            router_id: { get_resource: dedicated_router }
+            subnet: { get_resource: dedicated_subnet }
         condition: create_private_net
 
-# Take care of Security Groups
+# Take care of Security Groups if needed
 
-#    bootstrap_sg:
-#    type: OS::Neutron::SecurityGroup
-#    properties:
-#        name:
-#            list_join:
-#            - '-'
-#            - ['kass', {get_param: OS::stack_id}]
-#        rules:
-#            repeat:
-#                for_each:
-#                    <%port%>: {get_param: ports}
-#                template:
-#                    protocol: tcp
-#                    port_range_min: <%port%>
-#                    port_range_max: <%port%>
-#        condition: {get_param: create_sg}
+    dedicated_sg:
+        type: OS::Neutron::SecurityGroup
+        properties:
+            name:
+                list_join:
+                - '-'
+                - ['ucp', {get_param: "OS::stack_id"}]
+            rules:
+                repeat:
+                    for_each:
+                        <%port%>: {get_param: sg_ports}
+                    template:
+                        protocol: tcp
+                        port_range_min: <%port%>
+                        port_range_max: <%port%>
+        condition: create_sec_group
 
-    ucps:
+# Create VM ports
+
+    ucp_ports:
         type: OS::Heat::ResourceGroup
         properties:
             count: 3
             resource_def:
-                type: OS::Nova::Server
+                type: OS::Neutron::Port
                 properties:
-                    name: 
-                        list_join:
-                        - "_"
-                        - ["ucp_%index%", {get_param: "OS::stack_id"}]
-                    key_name: {get_param: key_name}
-                    image: {get_param: image_id}
-                    flavor: {get_param: flavor}
-                    security_groups: [{get_param: sg_name}] #TODO: should be "if"
-                    networks: 
-                        - {network: {if: [create_private_net, {get_resource: internal_network}, {get_param: private_network}]}}
+                    network_id:
+                        if:
+                            - create_private_net
+                            - get_resource: dedicated_network
+                            - get_param: private_network
+                    security_groups:
+                    - default
+                    - if:
+                        - create_sec_group
+                        - get_resource: dedicated_sg
+                        - get_param: sg_name
+        depends_on: dedicated_router_interface
+
+# Allocate floating Ips if needed
+
+    ucp_fips:
+        type: OS::Heat::ResourceGroup
+        properties:
+            count: 3
+            resource_def:
+                type: OS::Neutron::FloatingIP
+                properties:
+                  floating_network: {get_param: external_network}
+        condition: create_fip
+
+    ucp_0:
+        type: OS::Nova::Server
+        properties:
+            name: 
+                list_join:
+                - "_"
+                - ["ucp_0", {get_param: "OS::stack_id"}]
+            key_name: {get_param: key_name}
+            image: {get_param: image_id}
+            flavor: {get_param: flavor}
+            networks: 
+                - port: {get_attr: [ucp_ports, resource.0]} 
+                  floating_ip:
+                    if: [create_fip, {get_attr: [ucp_fips, resource.0]},""]
+
+# I have to do below because of https://bugs.launchpad.net/heat/+bug/1470614
+
+    ucp_1:
+        type: OS::Nova::Server
+        properties:
+            name: 
+                list_join:
+                - "_"
+                - ["ucp_1", {get_param: "OS::stack_id"}]
+            key_name: {get_param: key_name}
+            image: {get_param: image_id}
+            flavor: {get_param: flavor}
+            networks: 
+                - port: {get_attr: [ucp_ports, resource.1]} 
+                  floating_ip: 
+                    if: [create_fip, {get_attr: [ucp_fips, resource.1]},""]                  
+
+    ucp_2:
+        type: OS::Nova::Server
+        properties:
+            name: 
+                list_join:
+                - "_"
+                - ["ucp_2", {get_param: "OS::stack_id"}]
+            key_name: {get_param: key_name}
+            image: {get_param: image_id}
+            flavor: {get_param: flavor}
+            networks: 
+                - port: {get_attr: [ucp_ports, resource.2]} 
+                  floating_ip:
+                    if: [create_fip, {get_attr: [ucp_fips, resource.2]},""]
 
 outputs:
-    net_name:
-        value: {get_attr: [internal_network, name]}
-        condition: create_private_net
-#    instance_ip:
+    "UCP 0 Info":
+        description: Connect to UCP 0 VM using the networking info below
+        value:
+            get_attr:
+                - ucp_0
+                - networks
+
+    "UCP 1 Info":
+        description: Connect to UCP 1 VM using the networking info below
+        value:
+            get_attr:
+                - ucp_1
+                - networks
+
+    "UCP 2 Info":
+        description: Connect to UCP 2 VM using the networking info below
+        value:
+            get_attr:
+                - ucp_2
+                - networks
+#            if:
+#            - {get_param: assign_fip}
+#            - {get_attr: [ucp_fips, resource.0.floating_ip_address]}
+#            - get_attr: [ucp_0, networks.private]
+#        
 #        description: The IP address of the deployed instance
 #        value: { get_attr: [bootstrap_instance, first_address] }
 #    instance_name:
