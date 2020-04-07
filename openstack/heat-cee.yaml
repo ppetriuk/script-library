@@ -87,7 +87,7 @@ parameters:
         type: comma_delimited_list
         label: DNS IP addresses
         description: IPs separated by comma
-        default: 5.43.231.15,8.8.8.8,8.8.4.4
+        default: 8.8.8.8,8.8.4.4
 
     assign_fip:
         type: boolean
