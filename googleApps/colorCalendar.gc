@@ -1,0 +1,54 @@
+/**
+ * Color codes upcoming events in the user's calendar.
+ */
+function colorUpcomingEvents() {
+  var filterCreatorEmail = 'ppetriuk@box.com';
+  var oneOnOneId = '10'; // green
+  var maybeId = '8'; // grey
+  var manyPeopleId = '1'; // pale blue
+  var maybeEnum = 'MAYBE';
+  var manyPeople = 10;
+  var noPeopleID = '11'; //red
+
+  var today = new Date();
+  var nextweek = new Date();
+  nextweek.setDate(nextweek.getDate() + 7);
+  Logger.log(today + " " + nextweek);
+
+  var events = CalendarApp.getDefaultCalendar().getEvents(today, nextweek);
+  Logger.log('Number of events: ' + events.length);
+  
+  if (events.length > 0) {
+    for (i = 0; i < events.length; i++) {
+      var event = events[i];
+      var guests = event.getGuestList().length
+      var currentColor = event.getColor()
+      // Logger.log('%s %s %s (%s) (%s)', event.getCreators()[0], currentColor, event.getSummary(), guests.length, event.getMyStatus());
+      
+      // Color the Maybe meetings (takes priority over any other ones)
+      if ((event.getMyStatus() == maybeEnum) && (currentColor != maybeId)) {
+        Logger.log('Updating color from %s to %s for Maybes',currentColor, maybeId);
+        event.setColor(maybeId);
+      }
+      else {      
+        // Color reserved time (no participants)
+        if ((guests == 0) && (currentColor != noPeopleID)) {                 
+          Logger.log('Updating color from %s to %s for 1 on 1s',currentColor, noPeopleID);
+          event.setColor(noPeopleID);
+        }
+          
+        else if ((guests == 1) && (currentColor != oneOnOneId)) {                 
+          Logger.log('Updating color from %s to %s for 1 on 1s',currentColor, oneOnOneId);
+          event.setColor(oneOnOneId);
+        }
+        else if ((guests > manyPeople) && (currentColor != manyPeopleId)) {                 
+          Logger.log('Updating color from %s to %s for 1 on 1s',currentColor, manyPeopleId);
+          event.setColor(manyPeopleId);
+        }
+      }
+    }
+  }  
+  else {
+    Logger.log('No upcoming events found.');
+  }
+}
