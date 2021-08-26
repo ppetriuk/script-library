@@ -12,7 +12,7 @@ function colorUpcomingEvents() {
 
   var today = new Date();
   var nextweek = new Date();
-  nextweek.setDate(nextweek.getDate() + 7);
+  nextweek.setDate(nextweek.getDate() + 10);
   Logger.log(today + " " + nextweek);
 
   var events = CalendarApp.getDefaultCalendar().getEvents(today, nextweek);
