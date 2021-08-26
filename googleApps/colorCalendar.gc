@@ -2,7 +2,7 @@
  * Color codes upcoming events in the user's calendar.
  */
 function colorUpcomingEvents() {
-  var filterCreatorEmail = 'ppetriuk@box.com';
+  var filterCreatorEmail = 'email@email.com';
   var oneOnOneId = '10'; // green
   var maybeId = '8'; // grey
   var manyPeopleId = '1'; // pale blue
