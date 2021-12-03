@@ -37,11 +37,11 @@ function colorUpcomingEvents() {
           event.setColor(noPeopleID);
         }
           
-        else if ((guests == 1) && (currentColor != oneOnOneId)) {                 
+        else if ((guests == 1) && (currentColor != oneOnOneId) && event.guestsCanSeeGuests()) {                 
           Logger.log('Updating color from %s to %s for 1 on 1s',currentColor, oneOnOneId);
           event.setColor(oneOnOneId);
         }
-        else if ((guests > manyPeople) && (currentColor != manyPeopleId)) {                 
+        else if ((guests > manyPeople || !event.guestsCanSeeGuests()) && (currentColor != manyPeopleId)) {                 
           Logger.log('Updating color from %s to %s for 1 on 1s',currentColor, manyPeopleId);
           event.setColor(manyPeopleId);
         }
